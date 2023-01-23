@@ -15,7 +15,7 @@
             cmd: git remote get-url origin
             chdir: "{{ repo_root }}"
           register: git_remote
-        - set_facts:
+        - set_fact:
             git_repo_url: "{{ git_remote.stdout }}"
       when: (git_repo_url is undefined) or (git_repo_url == "")
 
