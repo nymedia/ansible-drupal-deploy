@@ -13,7 +13,7 @@
       block:
         - command:
             cmd: git remote get-url origin
-            cwd: "{{ repo_root }}"
+            chdir: "{{ repo_root }}"
           register: git_remote
         - set_facts:
             git_repo_url: "{{ git_remote.stdout }}"
@@ -22,7 +22,7 @@
     - name: Git - Ensure no uncommitted changes
       command:
         cmd: git status --porcelain --untracked-files=no
-        cwd: "{{ repo_root }}"
+        chdir: "{{ repo_root }}"
       register: git_status
       failed_when: >
         (git_status.rc != 0) or
@@ -31,7 +31,7 @@
     - name: Git - Fetch
       command:
         cmd: git fetch --tags --prune --prune-tags
-        cwd: "{{ repo_root }}"
+        chdir: "{{ repo_root }}"
       register: git_fetch
 
     - name: Git - Check for new version
@@ -54,7 +54,7 @@
     - name: Drush - Run backup
       command:
         cmd: drush sql:dump --no-ansi --no-interaction
-        cwd: "{{ drupal_root }}"
+        chdir: "{{ drupal_root }}"
       register: drush_sqldump
       # We have some trouble with the drush sql:dump command timing out. As
       # workaround we try to run it 3 times with a pre-defined timeout before
@@ -76,4 +76,4 @@
     - name: Composer build
       command:
         cmd: composer build
-        cwd: "{{ repo_root }}"
+        chdir: "{{ repo_root }}"
