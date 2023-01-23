@@ -1,0 +1,79 @@
+---
+- hosts: 127.0.0.1
+  connection: local
+
+  vars:
+    repo_root: "{{ deploy_repo_root | default('/var/www/html') }}"
+    drupal_root: "{{ deploy_drupal | default([repo_root, '/drupal'] | join) }}"
+    git_ref: "{{ deploy_git_ref | default('master') }}"
+    sql_dump_timeout: 60
+
+  tasks:
+    - name: Git - Get current remote URL
+      block:
+        - command:
+            cmd: git remote get-url origin
+            cwd: "{{ repo_root }}"
+          register: git_remote
+        - set_facts:
+            git_repo_url: "{{ git_remote.stdout }}"
+      when: (git_repo_url is undefined) or (git_repo_url == "")
+
+    - name: Git - Ensure no uncommitted changes
+      command:
+        cmd: git status --porcelain --untracked-files=no
+        cwd: "{{ repo_root }}"
+      register: git_status
+      failed_when: >
+        (git_status.rc != 0) or
+        (git_status.stdout_lines | length > 0)
+
+    - name: Git - Fetch
+      command:
+        cmd: git fetch --tags --prune --prune-tags
+        cwd: "{{ repo_root }}"
+      register: git_fetch
+
+    - name: Git - Check for new version
+      ansible.builtin.git:
+        repo: "{{ git_repo_url }}"
+        dest: "{{ repo_root }}"
+        version: "{{ git_ref }}"
+        # Only check for changes
+        update: false
+      register: git_check_update
+
+    # We check if there are any changes before and after the
+    - block:
+        - name: End play if commit did not change
+          debug:
+            msg: "No changes. Commit was: {{ git_check_update.before }}"
+        - meta: end_play
+      when: git_check_update.before = git_check_update.after
+
+    - name: Drush - Run backup
+      command:
+        cmd: drush sql:dump --no-ansi --no-interaction
+        cwd: "{{ drupal_root }}"
+      register: drush_sqldump
+      # We have some trouble with the drush sql:dump command timing out. As
+      # workaround we try to run it 3 times with a pre-defined timeout before
+      # giving up.
+      # @see: https://github.com/nymedia/internal-operations-support/issues/35
+      timeout: "{{ sql_dump_timeout }}"
+      retries: 3
+      # Example of output: "[success] Database dump saved to ..."
+      until: drush_sqldump.stdout.find("[success]") != -1
+
+    - name: Git - Checkout new version
+      ansible.builtin.git:
+        repo: "{{ git_repo_url }}"
+        dest: "{{ repo_root }}"
+        version: "{{ git_ref }}"
+        update: true
+      register: git_checkout
+
+    - name: Composer build
+      command:
+        cmd: composer build
+        cwd: "{{ repo_root }}"
