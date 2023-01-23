@@ -9,10 +9,16 @@ It can handle both tags and branches using git checkout.
 
 ### Playbook's variables
 
-| Name | Description | Default |
-|------|-------------|---------|
-| `repo_root` | Git repo root, absolute path | "/var/www/html" |
-| `drupal_root` | Drupal root dir, absolute path | repo_root + "/drupal" |
-| `git_ref` | Version to deploy, must be a valid git ref (tag ro branch) | "master" |
-| `sql_dump_timeout` | Timeout _(in seconds)_ for the drush sql dump | 60 |
-| `git_repo_url` | Git repository URL, if not provided will be fetched from `repo_root` | _Undefined_ |
+| Name | Required | Description | Default |
+|------|----------|-------------|---------|
+| `deploy_repo_root` | No | Git repo root, absolute path | "/var/www/html" |
+| `deploy_drupal_root` | No | Drupal root dir, absolute path | repo_root + "/drupal" |
+| `deploy_git_branch` | Yes* | Branch name to deploy | _Undefined_ |
+| `deploy_git_tag` | Yes* | Git tag to deploy | _Undefined_ |
+| `drush_sqldump_timeout` | No | Timeout _(in seconds)_ for the drush sql dump | 60 |
+| `git_repo_url` | No | Git repository URL, if not provided will be fetched from `repo_root` | _Undefined_ |
+
+#### About `deploy_git_branch` and `deploy_git_tag`
+
+One, and only one, MUST be defined for the playbook to work.
+If either _both or none_ are defined the deployment will fail.
