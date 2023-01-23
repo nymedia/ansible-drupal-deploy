@@ -7,7 +7,7 @@
     drupal_root: "{{ deploy_drupal_root | default([repo_root, '/drupal'] | join) }}"
     git_branch: "{{ deploy_git_branch | default }}"
     git_tag: "{{ deploy_git_tag | default }}"
-    sql_dump_timeout: 120
+    sql_dump_timeout: "{{ drush_sqldump_timeout | default(120) }}"
 
   tasks:
     - name: Ensure a deploy branch XOR tag is defined
