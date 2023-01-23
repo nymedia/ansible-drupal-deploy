@@ -4,14 +4,23 @@
 
   vars:
     repo_root: "{{ deploy_repo_root | default('/var/www/html') }}"
-    drupal_root: "{{ deploy_drupal | default([repo_root, '/drupal'] | join) }}"
-    git_ref: "{{ deploy_git_ref | default('master') }}"
-    sql_dump_timeout: 60
+    drupal_root: "{{ deploy_drupal_root | default([repo_root, '/drupal'] | join) }}"
+    git_branch: "{{ deploy_git_branch | default }}"
+    git_tag: "{{ deploy_git_tag | default }}"
+    sql_dump_timeout: 120
 
   tasks:
-    - name: Git - Get current remote URL
-      block:
-        - command:
+    - name: Ensure a deploy branch XOR tag is defined
+      ansible.builtin.assert:
+        that: >-
+          (git_branch and not git_tag)
+          or
+          (not git_branch and git_tag)
+        msg: "A deploy branch xor tag MUST be defined!"
+
+    - block:
+        - name: Git - Get current remote URL
+          command:
             cmd: git remote get-url origin
             chdir: "{{ repo_root }}"
           register: git_remote
@@ -35,49 +44,76 @@
         cmd: git fetch --tags --prune --prune-tags
         chdir: "{{ repo_root }}"
       register: git_fetch
-      changed_when: >
-        git_fetch.stdout_lines | length > 0
+      changed_when: "git_fetch.stdout_lines | length > 0"
 
-    - name: Git - Check for new version
-      ansible.builtin.git:
-        repo: "{{ git_repo_url }}"
-        dest: "{{ repo_root }}"
-        version: "{{ git_ref }}"
-        # Only check for changes
-        update: false
-      register: git_check_update
+    - when: git_branch
+      block:
+        - name: Git - Get current branch
+          ansible.builtin.command:
+            cmd: git branch --show-current
+            chdir: "{{ repo_root }}"
+          register: git_branch_show
+          changed_when: false
 
-    # We check if there are any changes before and after the
-    - block:
-        - name: End play if commit did not change
-          debug:
-            msg: "No changes. Commit was: {{ git_check_update.before }}"
-        - meta: end_play
-      when: git_check_update.before = git_check_update.after
+        - set_fact:
+            git_current_branch: "{{ git_branch_show.stdout | trim }}"
+
+        - name: Git - Check for new commits when branch matches
+          ansible.builtin.git:
+            repo: "{{ git_repo_url }}"
+            dest: "{{ repo_root }}"
+            version: "{{ git_ref }}"
+            update: false
+          register: git_check_update
+          when: "git_branch == git_current_branch"
+
+        - when: "git_check_update.before == git_check_update.after"
+          block:
+            - debug:
+                msg: "Branch already at the latest commit. Commit was: {{ git_check_update.before }}"
+            - meta: end_play
+
+    - when: git_tag
+      block:
+        - name: Git - Get current tag
+          ansible.builtin.command:
+            cmd: git describe --exact-match --tags
+            chdir: "{{ repo_root }}"
+          register: git_describe_tags
+          changed_when: false
+
+        - set_fact:
+            git_current_tag: "{{ git_describe_tags.stdout | trim }}"
+
+        - when: "git_current_tag == git_tag"
+          block:
+            - debug:
+                msg: "Already at the required tag: {{ git_current_tag }}"
+            - meta: end_play
 
     - name: Drush - Run backup
-      command:
-        cmd: drush sql:dump --no-ansi --no-interaction
+      ansible.builtin.shell:
+        # We have some trouble with the drush sql:dump command hanging,
+        # therefore we addd a "maximun runtime" usint the "timeout" utility.
+        # @see: https://github.com/nymedia/internal-operations-support/issues/35
+        cmd: timeout "{{ sql_dump_timeout }}"  drush sql:dump --no-ansi --no-interaction
         chdir: "{{ drupal_root }}"
       register: drush_sqldump
-      # We have some trouble with the drush sql:dump command timing out. As
-      # workaround we try to run it 3 times with a pre-defined timeout before
-      # giving up.
-      # @see: https://github.com/nymedia/internal-operations-support/issues/35
-      timeout: "{{ sql_dump_timeout }}"
+      # Because of the "timeout" workaround allow 3 failures before giving up.
       retries: 3
-      # Example of output: "[success] Database dump saved to ..."
-      until: drush_sqldump.stdout.find("[success]") != -1
+      delay: 10
+      until: drush_sqldump.stderr.find("[success]") != -1
 
     - name: Git - Checkout new version
       ansible.builtin.git:
         repo: "{{ git_repo_url }}"
         dest: "{{ repo_root }}"
-        version: "{{ git_ref }}"
+        version: "{{ git_tag or git_branch }}"
         update: true
       register: git_checkout
 
     - name: Composer build
-      command:
+      ansible.builtin.shell:
         cmd: composer build
         chdir: "{{ repo_root }}"
+      register: composer_build
