@@ -10,7 +10,7 @@ It can handle both tags and branches using git checkout.
 ### Playbook's variables
 
 | Name | Description | Default |
---------------------------------
+|------|-------------|---------|
 | `repo_root` | Git repo root, absolute path | "/var/www/html" |
 | `drupal_root` | Drupal root dir, absolute path | repo_root + "/drupal" |
 | `git_ref` | Version to deploy, must be a valid git ref (tag ro branch) | "master" |
