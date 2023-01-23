@@ -15,6 +15,7 @@
             cmd: git remote get-url origin
             chdir: "{{ repo_root }}"
           register: git_remote
+          changed_when: false
         - set_fact:
             git_repo_url: "{{ git_remote.stdout }}"
       when: (git_repo_url is undefined) or (git_repo_url == "")
@@ -24,6 +25,7 @@
         cmd: git status --porcelain --untracked-files=no
         chdir: "{{ repo_root }}"
       register: git_status
+      changed_when: false
       failed_when: >
         (git_status.rc != 0) or
         (git_status.stdout_lines | length > 0)
@@ -33,6 +35,8 @@
         cmd: git fetch --tags --prune --prune-tags
         chdir: "{{ repo_root }}"
       register: git_fetch
+      changed_when: >
+        git_fetch.stdout_lines | length > 0
 
     - name: Git - Check for new version
       ansible.builtin.git:
