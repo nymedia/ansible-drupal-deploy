@@ -1,0 +1,31 @@
+name: Deploy to S3
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE}}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Extract git tag name
+        id: get-git-tag
+        run: >-
+          echo "tag_name=$(echo ${GITHUB_REF} | cut -d '/' -f 3)" >> $GITHUB_OUTPUT
+
+      - name: Copy playbooks to S3
+        run: |
+          aws s3 cp *.yml s3://${{ secrets.AWS_BUCKET_NAME }}/${{ steps.get-git-tag.outputs.tag_name }}/
