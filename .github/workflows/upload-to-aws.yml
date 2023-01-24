@@ -18,7 +18,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE}}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/automation/GithubActionsAnsibleDrupalDeploy
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Extract git tag name
