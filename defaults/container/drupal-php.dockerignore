@@ -1,0 +1,9 @@
+.git/
+.docker/
+.github/
+.travis/
+
+/docker-compose.yml
+
+logs/*
+deploy/*
