@@ -46,18 +46,35 @@
       register: git_fetch
       changed_when: "git_fetch.stdout_lines | length > 0"
 
+    - name: Git - Get current branch
+      ansible.builtin.command:
+        cmd: git branch --show-current
+        chdir: "{{ repo_root }}"
+      register: git_branch_show
+      changed_when: false
+
+    - name: Git - Get current tag
+      ansible.builtin.command:
+        cmd: git describe --exact-match --tags
+        chdir: "{{ repo_root }}"
+      register: git_describe_tags
+      changed_when: false
+      failed_when:
+        - git_describe_tags.rc != 0
+        - "'no tag exactly matches' not in git_describe_tags.stderr"
+
+    - ansible.builtin.set_fact:
+        git_current_branch: "{{ git_branch_show.stdout | trim }}"
+        git_current_tag: "{{ git_describe_tags.stdout | trim }}"
+
+    - ansible.builtin.debug:
+        msg: "Current branch is: '{{ git_current_branch | default('N/A') }}'"
+
+    - ansible.builtin.debug:
+        msg: "Current tag is: '{{ git_current_tag | default('N/A') }}'"
+
     - when: git_branch
       block:
-        - name: Git - Get current branch
-          ansible.builtin.command:
-            cmd: git branch --show-current
-            chdir: "{{ repo_root }}"
-          register: git_branch_show
-          changed_when: false
-
-        - ansible.builtin.set_fact:
-            git_current_branch: "{{ git_branch_show.stdout | trim }}"
-
         - name: Git - Check for new commits when branch matches
           ansible.builtin.git:
             repo: "{{ git_repo_url }}"
@@ -75,19 +92,6 @@
 
     - when: git_tag
       block:
-        - name: Git - Get current tag
-          ansible.builtin.command:
-            cmd: git describe --exact-match --tags
-            chdir: "{{ repo_root }}"
-          register: git_describe_tags
-          changed_when: false
-          failed_when:
-            - git_describe_tags.rc != 0
-            - "'no tag exactly matches' not in git_describe_tags.stderr"
-
-        - ansible.builtin.set_fact:
-            git_current_tag: "{{ git_describe_tags.stdout | trim }}"
-
         - when: "git_current_tag == git_tag"
           block:
             - ansible.builtin.debug:
