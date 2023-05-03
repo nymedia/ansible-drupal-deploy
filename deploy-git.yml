@@ -81,6 +81,9 @@
             chdir: "{{ repo_root }}"
           register: git_describe_tags
           changed_when: false
+          failed_when:
+            - git_describe_tags.rc != 0
+            - "'no tag exactly matches' not in git_describe_tags.stderr"
 
         - ansible.builtin.set_fact:
             git_current_tag: "{{ git_describe_tags.stdout | trim }}"
