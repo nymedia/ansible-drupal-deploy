@@ -115,7 +115,7 @@
             # therefore we addd a "maximun runtime" usint the "timeout" utility.
             # @see: https://github.com/nymedia/internal-operations-support/issues/35
             cmd: |
-              BACKUP_FILE="{{ backup_dir }}/db-backup-$(date +%Y-%m-%d_%H-%M-%S).sql.gz"
+              BACKUP_FILE="{{ backup_dir }}/db-backup-$(date +%Y-%m-%d_%H-%M-%S).sql"
               timeout "{{ sql_dump_timeout }}" drush sql:dump --no-ansi --no-interaction \
                 --gzip --result-file="$BACKUP_FILE"
               ls -t {{ backup_dir }}/db-backup-*.sql.gz | tail -n +4 | xargs rm -f
