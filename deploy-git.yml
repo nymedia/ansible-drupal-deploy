@@ -116,7 +116,8 @@
             # @see: https://github.com/nymedia/internal-operations-support/issues/35
             cmd: |
               BACKUP_FILE="{{ backup_dir }}/db-backup-$(date +%Y-%m-%d_%H-%M-%S).sql.gz"
-              timeout "{{ sql_dump_timeout }}" drush sql:dump --no-ansi --no-interaction | gzip > "$BACKUP_FILE"
+              timeout "{{ sql_dump_timeout }}" drush sql:dump --no-ansi --no-interaction \
+                --gzip --result-file="$BACKUP_FILE"
               ls -t {{ backup_dir }}/db-backup-*.sql.gz | tail -n +4 | xargs rm -f
             chdir: "{{ drupal_root }}"
           register: drush_sqldump
