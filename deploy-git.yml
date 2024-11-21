@@ -4,8 +4,8 @@
 
   vars:
     repo_root: "{{ deploy_repo_root | default('/var/www/html') }}"
-    drupal_root: "{{ deploy_drupal_root | default([repo_root, '/drupal'] | join) }}"
-    backup_dir: "{{ deploy_backup_dir | default(drupal_root ~ '/../backups') }}"
+    drupal_root: "{{ deploy_drupal_root | default(repo_root ~ '/drupal') }}"
+    backup_dir: "{{ deploy_backup_dir | default(repo_root ~ '/../backups') }}"
     git_branch: "{{ deploy_git_branch | default }}"
     git_tag: "{{ deploy_git_tag | default }}"
     sql_dump_timeout: "{{ drush_sqldump_timeout | default(180) }}"
