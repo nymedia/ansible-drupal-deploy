@@ -99,6 +99,7 @@
             - ansible.builtin.meta: end_play
 
     - name: Drush - Run backup
+      tags: backup
       ansible.builtin.shell:
         # We have some trouble with the drush sql:dump command hanging,
         # therefore we addd a "maximun runtime" usint the "timeout" utility.
