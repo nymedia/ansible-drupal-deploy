@@ -4,10 +4,11 @@
 
   vars:
     repo_root: "{{ deploy_repo_root | default('/var/www/html') }}"
-    drupal_root: "{{ deploy_drupal_root | default([repo_root, '/drupal'] | join) }}"
+    drupal_root: "{{ deploy_drupal_root | default(repo_root ~ '/drupal') }}"
+    backup_dir: "{{ deploy_backup_dir | default(repo_root ~ '/../backups') }}"
     git_branch: "{{ deploy_git_branch | default }}"
     git_tag: "{{ deploy_git_tag | default }}"
-    sql_dump_timeout: "{{ drush_sqldump_timeout | default(120) }}"
+    sql_dump_timeout: "{{ drush_sqldump_timeout | default(180) }}"
 
   tasks:
     - name: Ensure a deploy branch XOR tag is defined
@@ -99,17 +100,31 @@
             - ansible.builtin.meta: end_play
 
     - name: Drush - Run backup
-      ansible.builtin.shell:
-        # We have some trouble with the drush sql:dump command hanging,
-        # therefore we addd a "maximun runtime" usint the "timeout" utility.
-        # @see: https://github.com/nymedia/internal-operations-support/issues/35
-        cmd: timeout "{{ sql_dump_timeout }}"  drush sql:dump --no-ansi --no-interaction
-        chdir: "{{ drupal_root }}"
-      register: drush_sqldump
-      # Because of the "timeout" workaround allow 3 failures before giving up.
-      retries: 3
-      delay: 10
-      until: drush_sqldump.stderr.find("[success]") != -1
+      block:
+        - name: Ensure backups directory exists
+          tags: backup
+          ansible.builtin.file:
+            path: "{{ backup_dir }}"
+            state: directory
+            mode: '0755'
+
+        - name: Drush - Run backup and cleanup old backups
+          tags: backup
+          ansible.builtin.shell:
+            # We have some trouble with the drush sql:dump command hanging,
+            # therefore we addd a "maximun runtime" usint the "timeout" utility.
+            # @see: https://github.com/nymedia/internal-operations-support/issues/35
+            cmd: |
+              BACKUP_FILE="{{ backup_dir }}/db-backup-$(date +%Y-%m-%d_%H-%M-%S).sql"
+              timeout "{{ sql_dump_timeout }}" drush sql:dump --no-ansi --no-interaction \
+                --gzip --result-file="$BACKUP_FILE"
+              ls -t {{ backup_dir }}/db-backup-*.sql.gz | tail -n +4 | xargs rm -f
+            chdir: "{{ drupal_root }}"
+          register: drush_sqldump
+          # Because of the "timeout" workaround allow 3 failures before giving up.
+          retries: 3
+          delay: 10
+          until: drush_sqldump.stderr.find("[success]") != -1
 
     - name: Git - Checkout new version
       ansible.builtin.git:
