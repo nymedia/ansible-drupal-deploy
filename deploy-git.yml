@@ -8,6 +8,7 @@
     backup_dir: "{{ deploy_backup_dir | default(repo_root ~ '/../backups') }}"
     git_branch: "{{ deploy_git_branch | default }}"
     git_tag: "{{ deploy_git_tag | default }}"
+    force_deploy: "{{ deploy_force | default(false) | bool }}"
     sql_dump_timeout: "{{ drush_sqldump_timeout | default(180) }}"
 
   tasks:
@@ -85,7 +86,7 @@
           register: git_check_update
           when: "git_branch == git_current_branch"
 
-        - when: "git_check_update.before == git_check_update.after"
+        - when: "not force_deploy and git_check_update.before == git_check_update.after"
           block:
             - ansible.builtin.debug:
                 msg: "Branch already at the latest commit. Commit was: {{ git_check_update.before }}"
@@ -93,7 +94,7 @@
 
     - when: git_tag
       block:
-        - when: "git_current_tag == git_tag"
+        - when: "not force_deploy and git_current_tag == git_tag"
           block:
             - ansible.builtin.debug:
                 msg: "Already at the required tag: {{ git_current_tag }}"

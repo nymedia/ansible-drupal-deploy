@@ -15,6 +15,7 @@ It can handle both tags and branches using git checkout.
 | `deploy_drupal_root` | No | Drupal root dir, absolute path | repo_root + "/drupal" |
 | `deploy_git_branch` | Yes* | Branch name to deploy | _Undefined_ |
 | `deploy_git_tag` | Yes* | Git tag to deploy | _Undefined_ |
+| `deploy_force` | No | Run the full deployment even when the requested tag or branch is already checked out | `false` |
 | `drush_sqldump_timeout` | No | Timeout _(in seconds)_ for the drush sql dump | 60 |
 | `git_repo_url` | No | Git repository URL, if not provided will be fetched from `repo_root` | _Undefined_ |
 
@@ -22,3 +23,10 @@ It can handle both tags and branches using git checkout.
 
 One, and only one, MUST be defined for the playbook to work.
 If either _both or none_ are defined the deployment will fail.
+
+#### Retrying an incomplete deployment
+
+The checkout happens before `composer build`. If the build fails, the requested
+tag or branch may already be checked out even though deployment did not finish.
+Pass `deploy_force=true` to retry the full deployment, including the database
+backup and `composer build`, instead of ending early because the checkout matches.
